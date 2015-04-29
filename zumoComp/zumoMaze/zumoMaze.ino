@@ -32,7 +32,7 @@
 
 // SENSOR_THRESHOLD is a value to compare reflectance sensor
 // readings to to decide if the sensor is over a black line
-#define SENSOR_THRESHOLD 300
+#define SENSOR_THRESHOLD 200
 
 // ABOVE_LINE is a helper macro that takes returns
 // 1 if the sensor is over the line and 0 if otherwise
@@ -48,7 +48,7 @@
 // wrong direction.
 #define SPEED 400
 
-#define THROTTLE 250
+#define THROTTLE 200
 
 // Thickness of your line in inches
 #define LINE_THICKNESS .75 
@@ -90,15 +90,17 @@ void setup()
   unsigned short last_status = 0;
   int turn_direction = 1;  
 
-  buzzer.play(">g32>>c32");
+  //buzzer.play(">g32>>c32");
 
-  reflectanceSensors.init();
+  reflectanceSensors.init(QTR_NO_EMITTER_PIN);
 
   delay(500);
   pinMode(13, OUTPUT);
   digitalWrite(13, HIGH);        // turn on LED to indicate we are in calibration mode
 
   button.waitForButton();
+  buzzer.play(">g32");
+  delay(1000);
 
   // Calibrate the Zumo by sweeping it from left to right
   for(int i = 0; i < 4; i ++)
@@ -142,7 +144,7 @@ void setup()
   motors.setSpeeds(0, 0);
 
   // Sound off buzzer to denote Zumo is finished calibrating
-  buzzer.play("L16 cdegreg4");
+  //buzzer.play("L16 cdegreg4");
 
   // Turn off LED to indicate we are through with calibration
   digitalWrite(13, LOW);
@@ -303,7 +305,7 @@ void followSegment()
     {
       // There is no line visible ahead, and we didn't see any
       // intersection.  Must be a dead end.          
-      motors.setSpeeds(THROTTLE, THROTTLE);  
+      motors.setSpeeds(0, 0);  
       return;
     }
     else if(ABOVE_LINE(sensors[0]) || ABOVE_LINE(sensors[5]))
@@ -385,8 +387,14 @@ void solveMaze()
     // solved the maze.
     if(ABOVE_LINE(sensors[1]) && ABOVE_LINE(sensors[2]) && ABOVE_LINE(sensors[3]) && ABOVE_LINE(sensors[4]))
     {
-      motors.setSpeeds(0,0);
-      break;
+      motors.setSpeeds(100,100);
+      delay(OVERSHOOT(LINE_THICKNESS)/8);
+      if(ABOVE_LINE(sensors[0]), ABOVE_LINE(sensors[1]) && ABOVE_LINE(sensors[2]) && ABOVE_LINE(sensors[3]) && ABOVE_LINE(sensors[4]), ABOVE_LINE(sensors[5]))
+      {
+        motors.setSpeeds(0,0);
+        break;
+      }
+      motors.setSpeeds(THROTTLE, THROTTLE);
     }
 
     // Intersection identification is complete.
@@ -429,7 +437,7 @@ void goToFinishLine()
     followSegment();
 
     // Drive through the intersection. 
-    motors.setSpeeds(SPEED, SPEED);
+    //followSegmentmotors.setSpeeds(SPEED, SPEED);
     delay(OVERSHOOT(LINE_THICKNESS));
 
     // Make a turn according to the instruction stored in
