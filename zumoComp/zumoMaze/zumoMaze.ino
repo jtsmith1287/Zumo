@@ -438,6 +438,7 @@ void goToFinishLine()
 
     // Drive through the intersection. 
     //followSegmentmotors.setSpeeds(SPEED, SPEED);
+    motors.setSpeeds(THROTTLE, THROTTLE);
     delay(OVERSHOOT(LINE_THICKNESS));
 
     // Make a turn according to the instruction stored in

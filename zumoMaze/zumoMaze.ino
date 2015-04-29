@@ -350,7 +350,7 @@ void solveMaze()
     // approximately in the middle of intersection.
     // This should help us better detect if we
     // have left or right segments.
-    //        motors.setSpeeds(SPEED, SPEED);
+    motors.setSpeeds(THROTTLE, THROTTLE);
     delay(OVERSHOOT(LINE_THICKNESS)/2);
 
     reflectanceSensors.readLine(sensors);
@@ -366,6 +366,7 @@ void solveMaze()
     // and can check to see if we've hit the
     // finish line or if there is a straight segment
     // ahead.   
+    motors.setSpeeds(THROTTLE, THROTTLE);
     delay(OVERSHOOT(LINE_THICKNESS)/2);
 
     // Check for a straight exit.
