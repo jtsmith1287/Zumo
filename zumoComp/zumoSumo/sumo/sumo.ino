@@ -67,8 +67,8 @@ unsigned int IRval;
 ZumoMotors motors;
 
 // these might need to be tuned for different motor types
-#define REVERSE_SPEED     200 // 0 is stopped, 400 is full speed
-#define TURN_SPEED        200
+#define REVERSE_SPEED     300 // 0 is stopped, 400 is full speed
+#define TURN_SPEED        300
 #define SEARCH_SPEED      200
 #define SUSTAINED_SPEED   400 // switches to SUSTAINED_SPEED from FULL_SPEED after FULL_SPEED_DURATION_LIMIT ms
 #define FULL_SPEED        400
@@ -78,6 +78,11 @@ ZumoMotors motors;
 
 #define RIGHT 1
 #define LEFT -1
+
+#define FRONTHIT 0
+#define BACKHIT 1
+#define LEFTSIDEHIT 2
+#define RIGHTSIDEHIT 3
 
 enum ForwardSpeed { SearchSpeed, SustainedSpeed, FullSpeed };
 ForwardSpeed _forwardSpeed;  // current forward speed setting
@@ -142,14 +147,17 @@ class Accelerometer : public LSM303
     int x_avg(void) const;
     int y_avg(void) const;
     long ss_xy_avg(void) const;
+    long s_x_avg(void) const;
+    long s_y_avg(void) const;
     float dir_xy_avg(void) const;
+    int getHitDirection(void) const;
   private:
     acc_data_xy last;
     RunningAverage<int> ra_x;
     RunningAverage<int> ra_y;
 };
 
-Accelerometer lsm303;
+Accelerometer accelerometer;
 boolean in_contact;  // set when accelerometer detects contact with opposing robot
 
 // forward declaration
@@ -161,12 +169,12 @@ void setup()
   Wire.begin();
 
   // Initiate LSM303
-  lsm303.init();
-  lsm303.enable();
+  accelerometer.init();
+  accelerometer.enable();
 
 #ifdef LOG_SERIAL
   Serial.begin(9600);
-  lsm303.getLogHeader();
+  accelerometer.getLogHeader();
 #endif
 
   randomSeed((unsigned int) millis());
@@ -209,6 +217,7 @@ void waitForButtonAndCountDown(bool restarting)
 
 void loop()
 {
+
   if (button.isPressed())
   {
     // if button is pressed, stop and wait for another press to go again
@@ -218,7 +227,7 @@ void loop()
   }
 
   loop_start_time = millis();
-  lsm303.readAcceleration(loop_start_time);
+  accelerometer.readAcceleration(loop_start_time);
   sensors.read(sensor_values);
 
   if ((_forwardSpeed == FullSpeed) && (loop_start_time - full_speed_start_time > FULL_SPEED_DURATION_LIMIT))
@@ -238,9 +247,24 @@ void loop()
   }
   else  // otherwise, go straight
   {
-    //TODO (justin): Add defend check and make check_forward_contact only check hits to the front
-    if (check_forward_contact()){
-      on_forward_contact_made();
+    // Change this method (check_contact) to tweak collision sesnsitivity
+    if (check_contact()){
+      on_contact_made();
+      switch (accelerometer.getHitDirection())
+      {
+        case FRONTHIT:
+        buzzer.play("g12");
+        break;
+        case BACKHIT:
+        buzzer.play("g12>g12");
+        break;
+        case LEFTSIDEHIT:
+        buzzer.play("g12>g12>g12");
+        break;
+        case RIGHTSIDEHIT:
+        buzzer.play("g12>g12>g12>g12");
+        break;
+      }
     }
     int speed = getForwardSpeed();
     motors.setSpeeds(speed, speed);
@@ -299,16 +323,16 @@ int getForwardSpeed()
 }
 
 // check for contact, but ignore readings immediately after turning or losing contact
-bool check_forward_contact()
+bool check_contact()
 {
   static long threshold_squared = (long) XY_ACCELERATION_THRESHOLD * (long) XY_ACCELERATION_THRESHOLD;
-  return (lsm303.ss_xy_avg() >  threshold_squared) && \
+  return (accelerometer.ss_xy_avg() >  threshold_squared) && \
     (loop_start_time - last_turn_time > MIN_DELAY_AFTER_TURN) && \
     (loop_start_time - contact_made_time > MIN_DELAY_BETWEEN_CONTACTS);
 }
 
 // sound horn and accelerate on contact -- fight or flight
-void on_forward_contact_made()
+void on_contact_made()
 {
 #ifdef LOG_SERIAL
   Serial.print("RUN AWAAAAAAYY!!!!");
@@ -317,8 +341,6 @@ void on_forward_contact_made()
   in_contact = true;
   contact_made_time = loop_start_time;
   setForwardSpeed(FullSpeed);
-  buzzer.play(">g32");
-  //buzzer.playFromProgramSpace(sound_effect);
 }
 
 // reset forward speed
@@ -410,9 +432,39 @@ long Accelerometer::ss_xy_avg(void) const
   return x_avg_long*x_avg_long + y_avg_long*y_avg_long;
 }
 
+long Accelerometer::s_x_avg(void) const
+{
+  long x_avg_long = static_cast<long>(x_avg());
+  return x_avg_long*x_avg_long;
+}
+
+long Accelerometer::s_y_avg(void) const
+{
+  long y_avg_long = static_cast<long>(y_avg());
+  return y_avg_long*y_avg_long;
+}
+
 float Accelerometer::dir_xy_avg(void) const
 {
   return atan2(static_cast<float>(x_avg()), static_cast<float>(y_avg())) * 180.0 / M_PI;
+}
+
+int Accelerometer::getHitDirection(void) const
+{
+  float dir = dir_xy_avg();
+
+  if (dir > 100){
+    return 0;
+  }
+  else if (dir < -100){
+    return 1;
+  }
+  else if (dir > -100 && dir < 0){
+    return 2;
+  }
+  else if (dir < 100 && dir > 0){
+    return 3;
+  }
 }
 
 
